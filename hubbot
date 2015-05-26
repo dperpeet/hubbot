@@ -698,6 +698,10 @@ def print_jobs_table(title, jobs):
             else:
                 comment = hubbot_link
 
+        # try to add labels
+        if 'labels' in job:
+            for label in job['labels']:
+                comment += "<span style=\"background: #%s; color: white; display: inline-block; padding: 5px; border-radius: 6px;\">%s</span>" % (label['color'], label['name'])
         text = text + """
           <tr class="%s">
             <td>%s</td>
@@ -898,17 +902,20 @@ def publish_status(extended_info):
 def get_sorted_pulls():
     pulls = github_get("pulls")
     # Pulls with a lower priority will be checked first
-    viable_pulls = [ ];
+    viable_pulls = [ ]
     for p in pulls:
         priority = priority_default
+        pertinent_labels = [ ]
         if p['title'].lower().startswith('wip'):
             priority = priority_work_in_progress
+            pertinent_labels.append({'name': 'WIP', 'color': 'eb6420'})
         else:
             # check labels
             p_labels = github_get("issues/%s/labels" % p['number'])
             for l in p_labels:
                 if l['name'] in ['needswork', 'needsdesign']:
                     priority = priority_needs_attention
+                    pertinent_labels.append(l)
         # get status data for the pull
         status = github_get("commits/%s/status" % p['head']['sha'])
         for config in os_arch_configurations:
@@ -925,7 +932,8 @@ def get_sorted_pulls():
                                  'priority': priority+priority_offset,
                                  'config': status_context,
                                  'status_data': status,
-                                 'noauto': 'noauto' in config and config['noauto']
+                                 'noauto': 'noauto' in config and config['noauto'],
+                                 'labels': pertinent_labels
                                 })
 
     # sort by priority
@@ -1044,7 +1052,8 @@ def scan_pulls():
                               'comment': pull_comment,
                               'is_pull': True,
                               'config': pull_info['config'],
-                              'status_data': pull_info['status_data']
+                              'status_data': pull_info['status_data'],
+                              'labels': pull_info['labels']
                              })
     master_info = consider_master(master)
     if master_info:
